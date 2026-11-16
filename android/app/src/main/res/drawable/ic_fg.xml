@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône : calendrier or sur noir chaud, une case cuivre (congé) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- anneaux -->
+    <path android:fillColor="#F0CF73" android:pathData="M40,30h5v10h-5z M63,30h5v10h-5z" />
+    <!-- cadre -->
+    <path android:fillColor="#F0CF73" android:fillType="evenOdd"
+        android:pathData="M36,34h36a6,6 0,0 1,6 6v32a6,6 0,0 1,-6 6h-36a6,6 0,0 1,-6 -6v-32a6,6 0,0 1,6 -6z M34,48v24a2,2 0,0 0,2 2h36a2,2 0,0 0,2 -2v-24z" />
+    <!-- cases -->
+    <path android:fillColor="#F0CF73" android:pathData="M39,52h7v6h-7z M50,52h7v6h-7z M39,62h7v6h-7z M61,62h7v6h-7z" />
+    <path android:fillColor="#E9A178" android:pathData="M61,52h7v6h-7z M50,62h7v6h-7z" />
+</vector>

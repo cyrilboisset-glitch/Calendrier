@@ -1,0 +1,49 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Numéro de version : numéro de la compilation GitHub (1 en local)
+def build = (System.getenv('GITHUB_RUN_NUMBER') ?: '1').toInteger()
+
+android {
+    namespace 'fr.cyril.calendrierconges'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'fr.cyril.calendrierconges'
+        minSdk 26
+        targetSdk 34
+        versionCode build
+        versionName "2.0.${build}"
+    }
+
+    // Clé de signature fixe : les mises à jour s'installent par-dessus sans perdre les données
+    signingConfigs {
+        release {
+            storeFile file('calendrier.keystore')
+            storePassword 'calendrier-conges'
+            keyAlias 'calendrier'
+            keyPassword 'calendrier-conges'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+        debug {
+            signingConfig signingConfigs.release
+        }
+    }
+
+    // La page web (dossier www à la racine du dépôt) est embarquée telle quelle
+    sourceSets {
+        main { assets.srcDirs = ['../../www'] }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

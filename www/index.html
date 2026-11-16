@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f0e0d">
+<title>Calendrier congés</title>
+<style>
+@font-face{font-family:'Space Grotesk';src:url('fonts/space-grotesk-latin-700-normal.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:'Barlow Condensed';src:url('fonts/barlow-condensed-latin-600-normal.woff2') format('woff2');font-weight:600;font-display:swap}
+@font-face{font-family:'Barlow Condensed';src:url('fonts/barlow-condensed-latin-700-normal.woff2') format('woff2');font-weight:700;font-display:swap}
+
+/* Charte GOATout : noir chaud, or et cuivre (thème sombre) ; crème (thème clair) */
+:root{
+  --fond:#f6f1e7;--surface:#fffdf8;--surface-2:#efe8d9;--ligne:#ddd3be;
+  --texte:#1a1713;--texte-2:#5a5246;--texte-3:#8a8173;
+  --accent:#e8c15a;--accent-texte:#1a1405;--accent-trait:#8a6410;
+  --cuivre:#c4673a;--or:#c99a34;--danger:#c0392b;
+  --conge:#1f9d55;--vacances:#d6336c;
+  --repos:#e9e2d3;
+  --ombre:0 2px 3px rgb(40 30 10/10%),0 10px 24px rgb(40 30 10/12%);
+  --rayon:16px;
+  --chiffres:'Barlow Condensed','Roboto Condensed','Arial Narrow',system-ui,sans-serif;
+  --titre:'Space Grotesk',system-ui,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --fond:#0f0e0d;--surface:#1c1a17;--surface-2:#27241f;--ligne:#3a342c;
+    --texte:#f4efe6;--texte-2:#cfc8ba;--texte-3:#978e7f;
+    --accent:#f0cf73;--accent-texte:#1a1405;--accent-trait:#f0cf73;
+    --cuivre:#e9a178;--or:#f0cf73;--danger:#ff7b6b;
+    --conge:#37c27b;--vacances:#e8588a;
+    --repos:#141210;
+    --ombre:0 2px 3px rgb(0 0 0/40%),0 12px 26px rgb(0 0 0/45%);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --fond:#0f0e0d;--surface:#1c1a17;--surface-2:#27241f;--ligne:#3a342c;
+  --texte:#f4efe6;--texte-2:#cfc8ba;--texte-3:#978e7f;
+  --accent:#f0cf73;--accent-texte:#1a1405;--accent-trait:#f0cf73;
+  --cuivre:#e9a178;--or:#f0cf73;--danger:#ff7b6b;
+  --conge:#37c27b;--vacances:#e8588a;
+  --repos:#141210;
+  --ombre:0 2px 3px rgb(0 0 0/40%),0 12px 26px rgb(0 0 0/45%);
+  color-scheme:dark;
+}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--fond);color:var(--texte);font:14px/1.4 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-tap-highlight-color:transparent}
+button,select,input,textarea{font:inherit;color:inherit}
+[hidden]{display:none!important}
+
+/* Barre du haut */
+header{position:sticky;top:0;z-index:10;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;background:color-mix(in srgb,var(--fond) 90%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--ligne)}
+h1{margin:0;font-family:var(--titre);font-weight:700;font-size:22px;letter-spacing:.01em;line-height:1.1}
+h1 span{color:var(--or)}
+.sub{font-size:12px;color:var(--cuivre);margin-top:2px}
+.hint{font-size:12px;color:var(--texte-3)}
+.tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.btn,select{min-height:38px;padding:0 14px;border-radius:999px;border:1px solid var(--ligne);background:var(--surface);color:var(--texte);font-weight:600;cursor:pointer;
+  background-image:linear-gradient(180deg,color-mix(in srgb,#fff 8%,transparent),transparent 60%);box-shadow:0 3px 8px rgb(0 0 0/18%),inset 0 1px 0 color-mix(in srgb,#fff 14%,transparent)}
+.btn:active{transform:translateY(1px)}
+.btn.principal{background-color:var(--accent);color:var(--accent-texte);border-color:color-mix(in srgb,#000 15%,var(--accent));
+  background-image:linear-gradient(180deg,color-mix(in srgb,#fff 28%,transparent),transparent 55%);box-shadow:0 6px 14px rgb(0 0 0/28%),inset 0 1px 0 rgb(255 255 255/40%),inset 0 -3px 0 rgb(0 0 0/18%)}
+.btn.danger{color:var(--danger)}
+.btn.petit{min-height:30px;padding:0 10px;font-size:12px}
+.btn:disabled{opacity:.4;cursor:default}
+#yearSel{font-family:var(--chiffres);font-size:18px;font-weight:700}
+
+/* Mise en page */
+.layout{display:grid;grid-template-columns:330px 1fr;gap:12px;padding:12px;max-width:1500px;margin:0 auto}
+.panel{background:var(--surface);border:1px solid var(--ligne);border-radius:var(--rayon);box-shadow:var(--ombre),inset 0 1px 0 color-mix(in srgb,#fff 10%,transparent);overflow:hidden;
+  background-image:linear-gradient(180deg,color-mix(in srgb,#fff 5%,transparent),transparent 70%)}
+.panel>h2,details>summary{margin:0;padding:11px 14px;font-size:15px;font-weight:700;border-bottom:1px solid var(--ligne)}
+details>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details>summary::-webkit-details-marker{display:none}
+details>summary:after{content:'▾';color:var(--texte-3);transition:transform .2s}
+details:not([open])>summary:after{transform:rotate(-90deg)}
+details:not([open])>summary{border-bottom:0}
+details+details{border-top:1px solid var(--ligne)}
+.side{padding:12px 14px}
+aside.panel{align-self:start}
+
+/* Soldes */
+.balances{display:grid;gap:6px}
+.bal{display:grid;grid-template-columns:1fr 64px 60px;gap:6px;align-items:center;font-size:12.5px}
+.bal .code{font-family:var(--chiffres);font-weight:700;font-size:15px;color:var(--or)}
+.bal .lib{color:var(--texte-2)}
+.bal input{width:100%;padding:6px;border:1px solid var(--ligne);border-radius:10px;text-align:right;background:var(--surface-2);font-family:var(--chiffres);font-size:15px;font-weight:600}
+.pill{padding:5px;text-align:center;background:var(--surface-2);border:1px solid var(--ligne);border-radius:10px;font-family:var(--chiffres);font-weight:700;font-size:16px}
+.pill.neg{color:var(--danger);border-color:var(--danger)}
+.bal .note{grid-column:1/-1;font-size:11px;color:var(--texte-3);margin-top:-3px}
+.stats{margin:12px 0 4px;font-size:12.5px}
+.stat{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid var(--ligne)}
+.stat b{font-family:var(--chiffres);font-size:16px}
+.stat.ok b{color:var(--conge)}
+.stat.warn{color:var(--danger)}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 0}
+.tag{font-size:11px;border:1px solid var(--ligne);border-radius:99px;padding:4px 8px;color:var(--texte-2)}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+
+/* Fériés */
+.holidays{display:grid;gap:6px}
+.holiday{padding:8px;border:1px solid var(--ligne);border-radius:12px;font-size:12px;background:var(--surface-2)}
+.htop{display:flex;justify-content:space-between;gap:6px}
+.htop span{color:var(--texte-3)}
+.modes{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px}
+.modes button{min-height:30px;font-size:11px;padding:0 4px;border-radius:999px;border:1px solid var(--ligne);background:var(--surface);cursor:pointer;font-weight:600}
+.modes button.on{background:color-mix(in srgb,var(--accent) 24%,var(--surface));border-color:var(--accent-trait);color:var(--accent-trait)}
+.modes button:disabled{opacity:.35;cursor:default}
+
+/* Vacances scolaires */
+.vacEdit{display:grid;gap:6px}
+.vacEdit input,.vacEdit select{width:100%;padding:8px 10px;border:1px solid var(--ligne);border-radius:10px;background:var(--surface-2);min-height:38px;box-shadow:none;background-image:none}
+.vacList{display:grid;gap:5px;margin-top:4px}
+.vacItem{display:flex;justify-content:space-between;gap:6px;align-items:center;font-size:12px;border:1px solid color-mix(in srgb,var(--vacances) 45%,var(--ligne));background:color-mix(in srgb,var(--vacances) 10%,var(--surface));border-radius:10px;padding:5px 8px}
+
+/* Mois */
+.months{padding:12px;display:grid;grid-template-columns:repeat(3,minmax(250px,1fr));gap:12px}
+.month{border:1px solid var(--ligne);border-radius:14px;overflow:hidden;background:var(--surface-2)}
+.mhead{padding:8px 10px;font-family:var(--titre);font-weight:700;text-transform:capitalize;font-size:15px;border-bottom:1px solid var(--ligne)}
+.month.now .mhead{color:var(--or)}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--ligne)}
+.dow{padding:4px 1px;text-align:center;background:var(--surface-2);font-size:10px;font-weight:700;color:var(--texte-3)}
+/* Toutes les cases ont exactement la même taille, quel que soit leur contenu */
+.day{position:relative;height:70px;padding:4px 5px;background:var(--surface);overflow:hidden;cursor:pointer;transition:background-color .15s}
+.empty{background:var(--surface-2);cursor:default}
+.worked{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--or) 35%,transparent)}
+.off{background:var(--repos);color:var(--texte-3)}
+.n{font-family:var(--chiffres);font-weight:700;font-size:17px;line-height:1}
+.line{font-size:10px;line-height:1.25;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.am .line.shift{color:var(--or)}
+.pm .line.shift{color:var(--cuivre)}
+.off .line.shift{color:var(--texte-3)}
+.ferie{position:absolute;right:4px;top:4px;background:var(--accent);color:var(--accent-texte);border-radius:5px;padding:0 4px;font-size:10px;font-weight:800;line-height:15px}
+.school:not(.leave){background:color-mix(in srgb,var(--vacances) 13%,var(--surface))}
+.school.off:not(.leave){background:color-mix(in srgb,var(--vacances) 9%,var(--repos))}
+.schoolBadge{position:absolute;left:4px;bottom:3px;font-size:9px;font-weight:700;color:var(--vacances)}
+.leave{background:color-mix(in srgb,var(--conge) 20%,var(--surface))!important;box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--conge) 70%,transparent)!important}
+.leave .line.lt{color:var(--conge);font-weight:800;font-family:var(--chiffres);font-size:13px;margin-top:2px}
+.half{background:color-mix(in srgb,var(--or) 18%,var(--surface))!important;box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--or) 70%,transparent)!important}
+.half .line.lt{color:var(--or)}
+.recup .line.src{color:var(--texte-2);font-size:9.5px}
+.noteDot{position:absolute;right:5px;bottom:5px;width:9px;height:9px;border-radius:50%;background:var(--cuivre);box-shadow:0 0 0 2px var(--surface)}
+.selected{outline:3px solid var(--accent-trait);outline-offset:-3px}
+.today .n{color:var(--accent-texte);background:var(--accent);border-radius:6px;padding:1px 4px;display:inline-block}
+@media (hover:hover){.worked:not(.leave):hover{background:color-mix(in srgb,var(--accent) 10%,var(--surface))}}
+
+/* Fenêtre de saisie */
+.modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgb(0 0 0/55%);z-index:20;padding:12px}
+.card{width:min(540px,100%);background:var(--surface);border:1px solid var(--ligne);border-radius:18px;overflow:hidden;box-shadow:var(--ombre)}
+.chead{padding:12px 14px;border-bottom:1px solid var(--ligne);display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.chead b{font-family:var(--titre);font-size:16px}
+.form{padding:12px 14px;display:grid;gap:10px}
+.field label{display:block;font-size:12px;color:var(--texte-3);margin-bottom:4px}
+.field select,.field input,.field textarea{width:100%;padding:8px 10px;border:1px solid var(--ligne);border-radius:12px;background:var(--surface-2);box-shadow:none;background-image:none;min-height:40px;border-radius:12px;font-weight:500}
+.field textarea{min-height:90px;resize:vertical}
+.foot{display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;padding:0 14px calc(14px + env(safe-area-inset-bottom))}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));display:none;max-width:min(92vw,480px);background:var(--surface);border:1px solid var(--accent-trait);border-radius:14px;padding:10px 14px;box-shadow:var(--ombre);z-index:40;font-size:13px}
+
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.months{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){
+  header{padding-left:10px;padding-right:10px}
+  .tools{display:grid;grid-template-columns:repeat(3,1fr);width:100%}
+  .tools .btn,.tools select{padding:0 6px;font-size:13px}
+  .layout{display:block;padding:8px}
+  .panel{margin-bottom:8px}
+  .months{display:block;padding:8px}
+  .month{margin-bottom:8px}
+  .day{height:60px;padding:3px}
+  .n{font-size:16px}
+  .line{font-size:9px}
+  .leave .line.lt{font-size:12px}
+  .modal{align-items:flex-end;padding:0}
+  .card{max-height:94vh;overflow:auto;border-radius:18px 18px 0 0}
+  .field textarea,.field input,.field select{font-size:16px}
+}
+@media print{
+  :root{--fond:#fff;--surface:#fff;--surface-2:#f4f4f4;--ligne:#ccc;--texte:#111;--texte-2:#333;--texte-3:#666;--or:#8a6410;--cuivre:#c4673a;--repos:#eee;--conge:#1f9d55;--vacances:#d6336c;color-scheme:light}
+  header .tools,aside,.toast,.modal{display:none!important}
+  header{position:static;border:0}
+  .layout{display:block;padding:0}
+  .panel{box-shadow:none;border:0}
+  .months{grid-template-columns:repeat(3,1fr);gap:6px;padding:0}
+  .month{break-inside:avoid}
+  .day{height:46px}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Calendrier <span>congés</span></h1>
+    <div class="sub">2026–2035 · cycle matin / après-midi</div>
+    <div id="saveStatus" class="hint">Non sauvegardé</div>
+  </div>
+  <div class="tools">
+    <select id="yearSel" onchange="changeYear(+this.value)" aria-label="Année"></select>
+    <button class="btn principal" onclick="saveAll()">Sauvegarder</button>
+    <button class="btn" onclick="exportData()">Exporter</button>
+    <button class="btn" onclick="openImport()">Importer</button>
+    <input id="file" hidden type="file" accept=".json,application/json,text/plain" onchange="importData(event)">
+    <button class="btn" onclick="printPage()">PDF</button>
+    <button class="btn danger" onclick="resetAll()">Reset</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="panel">
+    <details id="secSoldes" open>
+      <summary id="soldTitle">Soldes</summary>
+      <div class="side">
+        <div class="hint" style="margin-bottom:8px">Touche un jour pour le début, puis le même jour ou la fin de la période.</div>
+        <div id="balances" class="balances"></div>
+        <div class="stats" id="stats"></div>
+        <div class="legend">
+          <span class="tag"><span class="dot" style="background:var(--or)"></span>Matin</span>
+          <span class="tag"><span class="dot" style="background:var(--cuivre)"></span>Après-midi</span>
+          <span class="tag"><span class="dot" style="background:var(--repos);border:1px solid var(--ligne)"></span>Repos</span>
+          <span class="tag"><span class="dot" style="background:var(--vacances)"></span>Vacances scolaires</span>
+          <span class="tag"><span class="dot" style="background:var(--conge)"></span>Congé</span>
+          <span class="tag"><span class="dot" style="background:var(--cuivre)"></span>Annotation</span>
+        </div>
+      </div>
+    </details>
+    <details id="secFeries">
+      <summary>Jours fériés</summary>
+      <div class="side">
+        <div class="hint" style="margin-bottom:8px">2 fériés chômés maximum. Un seul congé par an peut être posé sur un férié, et ce sera un CPP.</div>
+        <div id="holidayList" class="holidays"></div>
+      </div>
+    </details>
+    <details id="secVac">
+      <summary>Vacances scolaires</summary>
+      <div class="side vacEdit">
+        <label class="hint" for="schoolZone">Zone affichée</label>
+        <select id="schoolZone" onchange="state.schoolZone=this.value;render()">
+          <option value="A">Zone A</option><option value="B">Zone B</option><option value="C">Zone C</option><option value="ALL">Toutes les zones</option>
+        </select>
+        <b style="font-size:13px;margin-top:6px">Ajouter une période</b>
+        <input id="vacName" placeholder="Nom, ex : Hiver">
+        <input id="vacStart" type="date" aria-label="Début">
+        <input id="vacEnd" type="date" aria-label="Fin">
+        <button class="btn" onclick="addVacation()">Ajouter la période</button>
+        <div id="vacList" class="vacList"></div>
+      </div>
+    </details>
+  </aside>
+  <main class="panel">
+    <h2 id="yearTitle"></h2>
+    <div id="months" class="months"></div>
+  </main>
+</div>
+
+<div id="modal" class="modal" onclick="if(event.target===this)cancelSel()">
+  <div class="card">
+    <div class="chead"><div><b id="mtitle"></b><div id="msub" class="hint"></div></div><button class="btn petit" onclick="cancelSel()" aria-label="Fermer">✕</button></div>
+    <div class="form">
+      <div class="field"><label for="ltype">Type de congé</label><select id="ltype" onchange="qtys()"></select></div>
+      <div class="field"><label for="lqty">Quantité</label><select id="lqty"></select></div>
+      <div class="field" id="recupSourceField" style="display:none"><label for="recupSource">Jour férié à l’origine de la RECUP</label><select id="recupSource"></select><div id="recupHelp" class="hint"></div></div>
+      <div class="field"><label for="detail">Détail du congé</label><input id="detail"></div>
+      <div class="field"><label for="comment">Agenda / commentaire</label><textarea id="comment" placeholder="Ajouter une annotation…"></textarea></div>
+    </div>
+    <div class="foot">
+      <button class="btn" onclick="removeLeave()">Retirer congé</button>
+      <button class="btn" onclick="removeNote()">Effacer annotation</button>
+      <button class="btn principal" onclick="saveDays()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast" role="status"></div>
+
+<script>
+/* ===================== Constantes et règles ===================== */
+const START = 2026, END = 2035;
+const STORE = 'conges2026_2035_fix_retirer_v1';   // même clé que la version 1 : les données existantes sont reprises
+const VERSION = 2;
+const BASE = {CPP:19, CP5:4, CSUP:4.5, CFE:.5, CFR:1, CAN:3, CETC:5.03};
+const NAMES = {CPP:'Congé principal', CP5:'5e semaine', CSUP:'Repos', CFE:'Jour férié', CFR:'Fractionnement', CAN:'Ancienneté', CETC:'CET courant', RECUP:'Récup férié'};
+// Jours qui alimentent le CET en fin d'année : tout sauf CPP, CP5 et RECUP
+const CET_FEED = ['CSUP','CFE','CFR','CAN','CETC'];
+// 2e fractionnement : au moins 4,5 CPP posés du 1er janvier au 30 avril, crédité le 1er novembre
+const FRAC_MIN_CPP = 4.5;
+const MONS = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const DOWS = ['L','M','M','J','V','S','D'];
+const native = window.AndroidApp || null;   // présent seulement dans l'appli Android
+
+let state = loadState();
+let year = clampYear(state.currentYear || new Date().getFullYear());
+let selected = [];
+let firstRender = true;
+
+function clampYear(y){ return Math.min(END, Math.max(START, +y || START)); }
+
+/* ===================== Sauvegarde ===================== */
+function defaultState(){ return {version:VERSION, currentYear:START, schoolZone:'A', schoolVacations:{}, years:{}}; }
+
+// Reprend une sauvegarde (version 1 ou 2) et la met au format courant
+function migrate(s){
+  if(!s || typeof s !== 'object') throw new Error('format');
+  s.years ??= {}; s.schoolZone ??= 'A'; s.schoolVacations ??= {};
+  if(typeof s.years !== 'object') throw new Error('format');
+  for(const [y, d] of Object.entries(s.years)){
+    d.balances = {...BASE, ...(d.balances || {})};
+    d.leaves ??= {}; d.comments ??= {}; d.hm ??= {};
+    // Version 1 : le CET de départ des années suivantes était figé à la création de l'année.
+    // Désormais il est recalculé (report automatique) ; on part sans ajustement manuel.
+    if((s.version || 1) < 2 || d.cetAdj === undefined) d.cetAdj = 0;
+  }
+  s.version = VERSION;
+  return s;
+}
+
+function readRaw(){
+  let raw = null;
+  try { if(native) raw = native.loadState() || null; } catch(e){}
+  if(!raw){ try { raw = localStorage.getItem(STORE); } catch(e){} }
+  return raw;
+}
+function loadState(){
+  try { const raw = readRaw(); if(raw) return migrate(JSON.parse(raw)); } catch(e){}
+  return defaultState();
+}
+function saveState(show = true){
+  state.currentYear = year;
+  const raw = JSON.stringify(state);
+  let ok = false;
+  try { if(native) ok = !!native.saveState(raw); } catch(e){}
+  try { localStorage.setItem(STORE, raw); ok = ok || localStorage.getItem(STORE) === raw; } catch(e){}
+  saveStatus.textContent = ok ? 'Sauvegardé sur cet appareil' : 'Sauvegarde locale bloquée : utilise Exporter';
+  if(show) toastMsg(ok ? 'Sauvegarde OK.' : 'Sauvegarde locale impossible : utilise Exporter.');
+  return ok;
+}
+function save(){ saveState(false); }
+
+/* ===================== Dates, cycle, fériés ===================== */
+function iso(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+function parse(s){ const [a,b,c] = s.split('-').map(Number); return new Date(a, b-1, c); }
+function add(d, n){ const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function sow(d){ const x = new Date(d), n = (x.getDay()+6)%7; x.setDate(x.getDate()-n); x.setHours(0,0,0,0); return x; }
+// Cycle : semaine du 29/12/2025 = matin (lun-jeu), semaine suivante = après-midi (lun-ven). 1er janvier et 31 décembre : repos.
+function shift(d){
+  if((d.getMonth()===0 && d.getDate()===1) || (d.getMonth()===11 && d.getDate()===31)) return 'OFF';
+  const w = Math.round((sow(d) - sow(new Date(2025,11,29))) / (7*864e5)), n = (d.getDay()+6)%7;
+  return ((w%2)+2)%2 === 0 ? (n <= 3 ? 'AM' : 'OFF') : (n <= 4 ? 'PM' : 'OFF');
+}
+function worked(s){ return shift(parse(s)) !== 'OFF'; }
+function easter(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+    h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+    mo=Math.floor((h+l-7*m+114)/31),da=(h+l-7*m+114)%31+1;
+  return new Date(y, mo-1, da);
+}
+const holCache = {};
+function holidays(y){
+  if(holCache[y]) return holCache[y];
+  const e = easter(y);
+  return holCache[y] = [[`${y}-01-01`,'Jour de l’An'],[iso(add(e,1)),'Lundi de Pâques'],[`${y}-05-01`,'Fête du Travail'],[`${y}-05-08`,'Victoire 1945'],
+    [iso(add(e,39)),'Ascension'],[iso(add(e,50)),'Lundi de Pentecôte'],[`${y}-07-14`,'Fête nationale'],[`${y}-08-15`,'Assomption'],
+    [`${y}-11-01`,'Toussaint'],[`${y}-11-11`,'Armistice'],[`${y}-12-25`,'Noël']];
+}
+function holidayName(s){ const h = holidays(+s.slice(0,4)).find(h => h[0]===s); return h ? h[1] : null; }
+
+/* ===================== Données d'une année ===================== */
+function yd(y = year){
+  if(!state.years[y]) state.years[y] = {balances:{...BASE}, leaves:{}, comments:{}, hm:{}, cetAdj:0};
+  return state.years[y];
+}
+function usage(y = year, ignore = []){
+  const u = {CPP:0,CP5:0,CSUP:0,CFE:0,CFR:0,CAN:0,CETC:0,RECUP:0};
+  for(const [d, l] of Object.entries(yd(y).leaves)) if(!ignore.includes(d)) u[l.t] += +l.q;
+  return u;
+}
+
+/* ---- RECUP : 1 par férié travaillé marqué « + RECUP » (et sans congé posé dessus) ---- */
+function recupHolidays(y = year){ return holidays(y).filter(h => yd(y).hm[h[0]]==='recup' && worked(h[0]) && !yd(y).leaves[h[0]]); }
+function recupGen(y = year){ return recupHolidays(y).length; }
+function recupUsedBy(y, holiday){ return Object.entries(yd(y).leaves).find(([d,l]) => l.t==='RECUP' && l.sourceHoliday===holiday); }
+function eligibleRecupSources(pose, y = year, ignore = []){
+  const used = new Set(Object.entries(yd(y).leaves).filter(([d,l]) => l.t==='RECUP' && l.sourceHoliday && !ignore.includes(d)).map(([d,l]) => l.sourceHoliday));
+  return recupHolidays(y).filter(h => h[0] < pose && !used.has(h[0]));
+}
+
+/* ---- Fractionnement ---- */
+function fracInfo(y = year){
+  const L = yd(y).leaves, lim = `${y}-04-30`, nov = `${y}-11-01`;
+  let cppEarly = 0, cfrEarly = 0, cfrTotal = 0;
+  for(const [d, l] of Object.entries(L)){
+    if(l.t==='CPP' && d <= lim) cppEarly += +l.q;
+    if(l.t==='CFR'){ cfrTotal += +l.q; if(d < nov) cfrEarly += +l.q; }
+  }
+  const earned = cppEarly >= FRAC_MIN_CPP;
+  const base = +yd(y).balances.CFR;
+  return {cppEarly, earned, bonus: earned ? 1 : 0, base, cfrEarly, cfrTotal, nov,
+    invalid: cfrEarly > base + 1e-9 || cfrTotal > base + (earned ? 1 : 0) + 1e-9};
+}
+
+/* ---- CET : report automatique de l'année précédente ---- */
+function cetCarry(y){ // ce que l'année y verse au CET de l'année y+1
+  return CET_FEED.reduce((s, t) => s + Math.max(0, left(t, y)), 0);
+}
+function cetStart(y = year){
+  if(y <= START) return +yd(y).balances.CETC;
+  return Math.max(0, cetCarry(y-1) + (+yd(y).cetAdj || 0));
+}
+
+/* ---- Soldes ---- */
+function balance(t, y = year){
+  if(t==='RECUP') return recupGen(y);
+  if(t==='CETC') return cetStart(y);
+  if(t==='CFR') return +yd(y).balances.CFR + fracInfo(y).bonus;
+  return +yd(y).balances[t];
+}
+function left(t, y = year, ignore = []){ return balance(t, y) - usage(y, ignore)[t]; }
+
+/* ---- Peut-on poser ce congé ce jour-là ? (renvoie null ou la raison du refus) ---- */
+function canPlace(t, q, s, y = year){
+  const ignore = [s];   // le congé déjà présent ce jour-là est remplacé
+  if(!worked(s)) return 'jour de repos';
+  const hol = holidayName(s);
+  if(hol){
+    if(t !== 'CPP') return 'sur un férié, seul un CPP peut être posé';
+    const other = Object.entries(yd(y).leaves).find(([d]) => d !== s && holidayName(d));
+    if(other) return 'un seul congé sur férié par an (déjà le ' + fr(other[0]) + ')';
+    const m = yd(y).hm[s];
+    if(m === 'recup' || m === 'chome') return 'le férié du ' + fr(s) + ' est marqué « ' + (m==='recup' ? '+ RECUP' : 'Chômé') + ' » : repasse-le sur « Rien »';
+  }
+  if(t === 'CFR'){
+    const f = fracInfo(y), cur = yd(y).leaves[s], curQ = cur && cur.t==='CFR' ? +cur.q : 0;
+    const early = f.cfrEarly - (s < f.nov ? curQ : 0), total = f.cfrTotal - curQ;
+    if(s < f.nov && early + q > f.base + 1e-9) return 'le 2e fractionnement n’est utilisable qu’à partir du 1er novembre';
+    if(total + q > f.base + f.bonus + 1e-9)
+      return f.earned ? 'solde CFR insuffisant' : '2e fractionnement non acquis (' + fmt(f.cppEarly) + ' / 4,5 CPP posés de janvier à avril)';
+    return null;
+  }
+  if(left(t, y, ignore) < q - 1e-9) return 'solde ' + t + ' insuffisant';
+  return null;
+}
+
+/* ===================== Vacances scolaires ===================== */
+function schoolRanges(y){
+  const zone = state.schoolZone || 'A', vacs = state.schoolVacations || {}, zones = zone==='ALL' ? ['A','B','C'] : [zone], all = [];
+  zones.forEach(z => ((vacs[y] && vacs[y][z]) || []).forEach(v => all.push({...v, z})));
+  return all;
+}
+// Une période saisie sur l'année précédente peut déborder (vacances de Noël)
+function isSchool(s){ const y = +s.slice(0,4); return [...schoolRanges(y-1), ...schoolRanges(y)].filter(v => s >= v.a && s <= v.b); }
+
+/* ===================== Affichage ===================== */
+function fmt(n){ return (+Number(n).toFixed(2)).toLocaleString('fr-FR'); }
+function fr(s){ return parse(s).toLocaleDateString('fr-FR', {day:'2-digit', month:'short', year:'numeric'}); }
+function frShort(s){ return parse(s).toLocaleDateString('fr-FR', {day:'numeric', month:'short'}); }
+function esc(x){ return String(x).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+let toastTimer;
+function toastMsg(x, ms = 2600){ toast.textContent = x; toast.style.display = 'block'; clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.style.display = 'none', ms); }
+
+function init(){
+  for(let y = START; y <= END; y++){ const o = document.createElement('option'); o.value = y; o.textContent = y; yearSel.appendChild(o); }
+  if(window.matchMedia('(max-width:700px)').matches) secSoldes.open = false;
+  yd(); render(false);
+}
+function changeYear(y){ save(); year = clampYear(y); selected = []; yd(); render(); }
+function render(doSave = true){
+  yearSel.value = year;
+  schoolZone.value = state.schoolZone || 'A';
+  soldTitle.textContent = 'Soldes ' + year;
+  yearTitle.textContent = 'Année ' + year;
+  renderBal(); renderHol(); renderVacEditor(); renderMonths();
+  if(doSave) save();
+  if(firstRender){
+    firstRender = false;
+    const now = new Date();
+    if(now.getFullYear() === year && window.matchMedia('(max-width:1050px)').matches){ const m = document.querySelector('.month.now'); if(m) setTimeout(() => m.scrollIntoView({block:'start'}), 50); }
+  }
+}
+
+function renderBal(){
+  balances.innerHTML = '';
+  for(const t of Object.keys(BASE)){
+    const e = document.createElement('div'), l = left(t);
+    e.className = 'bal';
+    let value = yd().balances[t], note = '';
+    if(t === 'CETC'){
+      value = +cetStart().toFixed(2);
+      if(year > START) note = 'Report ' + (year-1) + ' : ' + fmt(cetCarry(year-1)) + ' (CSUP, CFE, CFR, CAN, CETC restants)' + (yd().cetAdj ? ' · ajustement ' + fmt(yd().cetAdj) : '');
+    }
+    if(t === 'CFR'){
+      const f = fracInfo();
+      note = f.earned ? '+1 au 1er novembre (acquis : ' + fmt(f.cppEarly) + ' CPP de janvier à avril)' : '2e fractionnement : ' + fmt(f.cppEarly) + ' / 4,5 CPP posés de janvier à avril';
+    }
+    e.innerHTML = `<span><span class="code">${t}</span> <span class="lib">${NAMES[t]}</span></span>`
+      + `<input type="number" step="0.01" inputmode="decimal" value="${value}" aria-label="Solde ${t}" onchange="setBalance('${t}', this.value)">`
+      + `<span class="pill${l < 0 ? ' neg' : ''}" title="Reste">${fmt(l)}</span>`
+      + (note ? `<span class="note">${esc(note)}</span>` : '');
+    balances.appendChild(e);
+  }
+  const e = document.createElement('div');
+  e.className = 'bal';
+  e.innerHTML = `<span><span class="code">RECUP</span> <span class="lib">Récup férié</span></span><span class="pill">${recupGen()}</span><span class="pill${left('RECUP') < 0 ? ' neg' : ''}">${fmt(left('RECUP'))}</span>`;
+  balances.appendChild(e);
+
+  const f = fracInfo(), chome = holidays(year).filter(h => yd().hm[h[0]]==='chome' && worked(h[0])).length;
+  const holLeave = Object.keys(yd().leaves).find(d => holidayName(d));
+  let html = '';
+  html += `<div class="stat"><span>Fériés chômés</span><b>${chome} / 2</b></div>`;
+  html += `<div class="stat"><span>Congé posé sur un férié</span><b>${holLeave ? frShort(holLeave) : '0 / 1'}</b></div>`;
+  html += `<div class="stat"><span>RECUP générées · posées</span><b>${recupGen()} · ${fmt(usage().RECUP)}</b></div>`;
+  html += `<div class="stat${f.earned ? ' ok' : ''}"><span>2e fractionnement (1er nov.)</span><b>${f.earned ? 'acquis' : 'non acquis'}</b></div>`;
+  html += `<div class="stat"><span>Versé au CET fin ${year}</span><b>${fmt(cetCarry(year))}</b></div>`;
+  if(f.invalid) html += `<div class="stat warn"><span>⚠ Un fractionnement posé n’est plus valable (CPP de janvier à avril &lt; 4,5 ou posé avant novembre).</span></div>`;
+  stats.innerHTML = html;
+}
+function setBalance(t, v){
+  v = +v;
+  if(t === 'CETC' && year > START) yd().cetAdj = +(v - cetCarry(year-1)).toFixed(2);
+  else yd().balances[t] = v;
+  render();
+}
+
+function renderHol(){
+  holidayList.innerHTML = '';
+  holidays(year).forEach(h => {
+    const s = h[0], work = worked(s), mode = yd().hm[s] || 'none', e = document.createElement('div'), l = yd().leaves[s];
+    e.className = 'holiday';
+    const st = !work ? 'repos' : l ? 'congé ' + l.t : (shift(parse(s))==='AM' ? 'matin' : 'après-midi');
+    e.innerHTML = `<div class="htop"><b>${fr(s)}</b><span>${st}</span></div><div>${h[1]}</div><div class="modes">`
+      + ['none','recup','chome'].map(m => `<button ${!work ? 'disabled' : ''} class="${mode===m ? 'on' : ''}" onclick="setHM('${s}','${m}')">${{none:'Rien', recup:'+ RECUP', chome:'Chômé'}[m]}</button>`).join('')
+      + `</div>`;
+    holidayList.appendChild(e);
+  });
+}
+function setHM(s, m){
+  const cur = yd().hm[s] || 'none';
+  if(cur === m) return;
+  if(m !== 'none' && yd().leaves[s]) return toastMsg('Un congé est posé sur ce férié : retire-le d’abord.');
+  if(cur === 'recup'){
+    const u = recupUsedBy(year, s);
+    if(u) return toastMsg('Ce férié a servi pour la RECUP du ' + fr(u[0]) + ' : retire cette RECUP d’abord.');
+  }
+  if(m === 'chome' && holidays(year).filter(h => yd().hm[h[0]]==='chome').length >= 2) return toastMsg('Maximum 2 fériés chômés.');
+  yd().hm[s] = m;
+  render();
+}
+
+function vacZone(){ return schoolZone.value; }
+function addVacation(){
+  const z = vacZone(), y = year, n = (vacName.value || 'Vacances').trim(), a = vacStart.value, b = vacEnd.value;
+  if(z === 'ALL') return toastMsg('Choisis la zone A, B ou C pour ajouter une période.');
+  if(!a || !b) return toastMsg('Indique une date de début et de fin.');
+  if(a > b) return toastMsg('La date de fin doit être après le début.');
+  state.schoolVacations ??= {};
+  state.schoolVacations[y] ??= {A:[], B:[], C:[]};
+  state.schoolVacations[y][z] ??= [];
+  state.schoolVacations[y][z].push({n, a, b});
+  vacName.value = ''; vacStart.value = ''; vacEnd.value = '';
+  render(); toastMsg('Vacances ajoutées.');
+}
+function delVacation(z, i){ state.schoolVacations?.[year]?.[z]?.splice(i, 1); render(); toastMsg('Période supprimée.'); }
+function renderVacEditor(){
+  const z = vacZone();
+  vacList.innerHTML = '';
+  if(z === 'ALL'){ vacList.innerHTML = '<div class="hint">Affichage de toutes les zones. Pour ajouter une période, choisis A, B ou C.</div>'; return; }
+  const arr = (state.schoolVacations?.[year]?.[z]) || [];
+  if(!arr.length){ vacList.innerHTML = '<div class="hint">Aucune période saisie pour ' + year + ', zone ' + z + '.</div>'; return; }
+  arr.forEach((v, i) => {
+    const e = document.createElement('div');
+    e.className = 'vacItem';
+    e.innerHTML = `<span>${esc(v.n)} : ${frShort(v.a)} → ${fr(v.b)}</span><button class="btn petit" onclick="delVacation('${z}',${i})" aria-label="Supprimer">✕</button>`;
+    vacList.appendChild(e);
+  });
+}
+
+function renderMonths(){
+  months.innerHTML = '';
+  const today = iso(new Date());
+  for(let m = 0; m < 12; m++){
+    const f = new Date(year, m, 1), last = new Date(year, m+1, 0), start = (f.getDay()+6)%7, b = document.createElement('section');
+    b.className = 'month' + (today.slice(0,7) === iso(f).slice(0,7) ? ' now' : '');
+    b.innerHTML = `<div class="mhead">${MONS[m]} ${year}</div><div class="grid"></div>`;
+    const g = b.querySelector('.grid');
+    let html = DOWS.map(x => `<div class="dow">${x}</div>`).join('');
+    for(let i = 0; i < start; i++) html += '<div class="day empty"></div>';
+    for(let n = 1; n <= last.getDate(); n++){
+      const d = new Date(year, m, n), s = iso(d), sh = shift(d), l = yd().leaves[s], v = isSchool(s), hol = holidayName(s), note = yd().comments[s];
+      const cls = ['day', sh==='OFF' ? 'off' : 'worked', sh==='AM' ? 'am' : sh==='PM' ? 'pm' : ''];
+      if(v.length) cls.push('school');
+      if(note) cls.push('hasNote');
+      if(selected.includes(s)) cls.push('selected');
+      if(s === today) cls.push('today');
+      if(l){ cls.push('leave'); if(+l.q < 1) cls.push('half'); if(l.t==='RECUP') cls.push('recup'); }
+      const title = [hol, ...v.map(x => 'Vacances zone ' + x.z + ' : ' + x.n), l ? l.t + ' ' + fmt(l.q) + (l.detail ? ' – ' + l.detail : '') + (l.sourceHoliday ? ' (férié du ' + fr(l.sourceHoliday) + ')' : '') : '', note || ''].filter(Boolean).join(' · ');
+      let inner = `<div class="n">${n}</div>`;
+      if(l){
+        inner += `<div class="line lt">${l.t} ${fmt(+l.q)}</div>`;
+        inner += l.t==='RECUP' && l.sourceHoliday ? `<div class="line src">↩ ${frShort(l.sourceHoliday)}</div>` : (l.detail ? `<div class="line src">${esc(l.detail)}</div>` : '');
+      } else {
+        inner += `<div class="line shift">${sh==='AM' ? 'Matin' : sh==='PM' ? 'Aprèm' : 'Repos'}</div>`;
+      }
+      if(hol) inner += '<i class="ferie">F</i>';
+      if(note) inner += '<i class="noteDot"></i>';
+      if(v.length && !l) inner += '<span class="schoolBadge">Vac.</span>';
+      html += `<div class="${cls.join(' ')}" data-d="${s}" title="${esc(title)}">${inner}</div>`;
+    }
+    g.innerHTML = html;
+    months.appendChild(b);
+  }
+}
+months.addEventListener('click', e => { const c = e.target.closest('.day[data-d]'); if(c) clickDay(c.dataset.d); });
+
+/* ===================== Sélection et saisie ===================== */
+function range(a, b){
+  let x = parse(a), z = parse(b);
+  if(x > z) [x, z] = [z, x];
+  const out = [];
+  for(let d = new Date(x); d <= z; d.setDate(d.getDate()+1)) out.push(iso(d));
+  return out;
+}
+function clickDay(s){
+  if(!selected.length){ selected = [s]; render(false); toastMsg('Début sélectionné : touche ce jour ou la fin de la période.'); return; }
+  selected = range(selected[0], s);
+  render(false); openModal();
+}
+function openModal(){
+  const first = selected[0], cur = yd().leaves[first], single = selected.length === 1;
+  modal.style.display = 'flex';
+  mtitle.textContent = single ? fr(first) + (holidayName(first) ? ' · ' + holidayName(first) : '') : selected.length + ' jours sélectionnés';
+  msub.textContent = single ? 'Annotation et/ou congé.' : 'Période du ' + fr(selected[0]) + ' au ' + fr(selected.at(-1)) + '. Les jours de repos sont ignorés.';
+  ltype.innerHTML = '<option value="NONE">Aucun congé – annotation seulement</option>';
+  [...Object.keys(BASE), 'RECUP'].forEach(t => {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = t + ' – ' + NAMES[t] + ' – reste ' + fmt(left(t));
+    ltype.appendChild(o);
+  });
+  ltype.value = single && cur ? cur.t : 'NONE';
+  detail.value = single && cur ? (cur.detail || '') : '';
+  comment.value = single ? (yd().comments[first] || '') : '';
+  comment.placeholder = single ? 'Ajouter une annotation…' : 'Laisser vide pour garder les annotations existantes';
+  qtys();
+  if(single && cur){ lqty.value = String(cur.q); if(cur.t==='RECUP' && cur.sourceHoliday) recupSource.value = cur.sourceHoliday; }
+}
+function qtys(){
+  const t = ltype.value;
+  recupSourceField.style.display = t==='RECUP' ? 'block' : 'none';
+  if(t === 'NONE'){ lqty.innerHTML = '<option value="0">Non applicable</option>'; lqty.disabled = true; detail.disabled = true; return; }
+  lqty.disabled = false; detail.disabled = false;
+  lqty.innerHTML = (t==='CETC' || t==='RECUP') ? '<option value="1">Poste complet</option>' : '<option value="1">Poste complet</option><option value="0.5">Demi-poste</option>';
+  if(t === 'RECUP'){
+    recupSource.innerHTML = '';
+    if(selected.length !== 1){
+      recupSource.innerHTML = '<option value="">RECUP à poser sur un seul jour</option>';
+      recupSource.disabled = true;
+      recupHelp.textContent = 'Pour lier la récupération à son jour férié, sélectionne un seul jour.';
+      return;
+    }
+    recupSource.disabled = false;
+    const sources = eligibleRecupSources(selected[0], year, [selected[0]]);
+    if(!sources.length){
+      recupSource.innerHTML = '<option value="">Aucun jour férié antérieur disponible</option>';
+      recupHelp.textContent = 'Le férié doit être travaillé, marqué « + RECUP », antérieur à la pose et pas déjà utilisé.';
+    } else {
+      sources.forEach(h => { const o = document.createElement('option'); o.value = h[0]; o.textContent = fr(h[0]) + ' — ' + h[1]; recupSource.appendChild(o); });
+      recupHelp.textContent = 'Seuls les fériés antérieurs, marqués « + RECUP » et pas déjà utilisés sont proposés.';
+    }
+  }
+}
+function saveDays(){
+  const t = ltype.value, q = +lqty.value, c = comment.value.trim(), single = selected.length === 1;
+  if(t === 'RECUP'){
+    if(!single) return toastMsg('La RECUP se pose sur un seul jour à la fois.');
+    const source = recupSource.value, pose = selected[0];
+    if(!source) return toastMsg('Choisis le jour férié correspondant à la RECUP.');
+    if(source >= pose) return toastMsg('Le jour férié doit être antérieur au jour de pose de la RECUP.');
+    if(!eligibleRecupSources(pose, year, [pose]).some(h => h[0]===source)) return toastMsg('Ce jour férié n’est pas disponible pour cette RECUP.');
+  }
+  let count = 0; const refus = [];
+  for(const s of selected){
+    // Annotation : texte saisi = posé sur tous les jours ; vide = effacé seulement si un seul jour est sélectionné
+    if(c) yd().comments[s] = c; else if(single) delete yd().comments[s];
+    if(t === 'NONE') continue;                     // « annotation seulement » ne touche pas aux congés
+    if(!worked(s)){ if(single) refus.push('jour de repos'); continue; }
+    const err = canPlace(t, q, s);
+    if(err){ refus.push(frShort(s) + ' : ' + err); continue; }
+    const item = {t, q, detail: detail.value.trim()};
+    if(t === 'RECUP') item.sourceHoliday = recupSource.value;
+    yd().leaves[s] = item; count++;
+  }
+  modal.style.display = 'none';
+  const n = selected.length; selected = [];
+  render();
+  let msg = n + ' jour(s) enregistré(s)' + (t==='NONE' ? ' (annotation)' : ' · ' + count + ' congé(s) posé(s)') + '.';
+  if(refus.length) msg += ' Non posé : ' + refus.slice(0, 3).join(' ; ') + (refus.length > 3 ? ' (+' + (refus.length-3) + ')' : '') + '.';
+  toastMsg(msg, refus.length ? 6000 : 2600);
+}
+function removeLeave(){
+  if(!selected.length) return toastMsg('Aucun jour sélectionné.');
+  let removed = 0;
+  for(const s of selected){
+    const l = yd().leaves[s];
+    if(!l) continue;
+    delete yd().leaves[s]; removed++;
+  }
+  modal.style.display = 'none'; selected = []; render();
+  const f = fracInfo();
+  toastMsg((removed ? 'Congé retiré sur ' + removed + ' jour(s).' : 'Aucun congé à retirer.') + (f.invalid ? ' ⚠ Le 2e fractionnement posé n’est plus acquis.' : ''));
+}
+function removeNote(){
+  if(!selected.length) return toastMsg('Aucun jour sélectionné.');
+  let removed = 0;
+  for(const s of selected) if(yd().comments[s]){ delete yd().comments[s]; removed++; }
+  comment.value = ''; modal.style.display = 'none'; selected = []; render();
+  toastMsg(removed ? 'Annotation effacée sur ' + removed + ' jour(s).' : 'Aucune annotation à effacer.');
+}
+function cancelSel(){ modal.style.display = 'none'; selected = []; render(false); }
+// Bouton retour d'Android : ferme d'abord la fenêtre ou la sélection
+function appBack(){
+  if(modal.style.display === 'flex' || selected.length){ cancelSel(); return true; }
+  return false;
+}
+
+/* ===================== Export / import / impression ===================== */
+function saveAll(){ saveState(true); }
+function exportName(){ return 'calendrier_conges_sauvegarde_' + iso(new Date()) + '.json'; }
+function exportData(){
+  saveState(false);
+  const json = JSON.stringify(state, null, 2);
+  if(native && native.exportFile){ native.exportFile(exportName(), json); return; }
+  const b = new Blob([json], {type:'application/json'}), a = document.createElement('a');
+  a.href = URL.createObjectURL(b); a.download = exportName(); document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function exportDone(ok){ toastMsg(ok ? 'Sauvegarde exportée.' : 'Export annulé.'); }
+function openImport(){ if(native && native.importFile) native.importFile(); else file.click(); }
+function importText(text){
+  try {
+    const imported = migrate(JSON.parse(text));
+    state = imported; year = clampYear(state.currentYear || START); selected = [];
+    yd(); render(); toastMsg('Sauvegarde importée.');
+  } catch(e){ toastMsg('Fichier invalide : ce n’est pas une sauvegarde du calendrier.'); }
+}
+function importData(ev){
+  const f = ev.target.files[0]; if(!f) return;
+  const r = new FileReader();
+  r.onload = () => importText(r.result);
+  r.readAsText(f);
+  ev.target.value = '';
+}
+function printPage(){ if(native && native.print) native.print(); else window.print(); }
+function resetAll(){
+  if(!confirm('Effacer toutes les données sauvegardées ?')) return;
+  try { localStorage.removeItem(STORE); } catch(e){}
+  try { if(native) native.saveState(''); } catch(e){}
+  state = defaultState(); year = START; selected = []; yd(); render(); toastMsg('Calendrier remis à zéro.');
+}
+
+init();
+</script>
+</body>
+</html>

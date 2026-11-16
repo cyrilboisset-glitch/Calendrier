@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Thème sombre (noir chaud GOATout) -->
+    <style name="Theme.Calendrier" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/fond</item>
+        <item name="android:statusBarColor">@color/fond</item>
+        <item name="android:navigationBarColor">@color/fond</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:colorAccent">@color/or</item>
+    </style>
+</resources>
