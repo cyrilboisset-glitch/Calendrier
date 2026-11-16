@@ -124,6 +124,21 @@ aside.panel{align-self:start}
 .month{border:1px solid var(--ligne);border-radius:14px;overflow:hidden;background:var(--surface-2)}
 .mhead{padding:8px 10px;font-family:var(--titre);font-weight:700;text-transform:capitalize;font-size:15px;border-bottom:1px solid var(--ligne)}
 .month.now .mhead{color:var(--or)}
+.mhead{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rbtn{flex:none;position:relative;width:30px;height:30px;border-radius:50%;border:2px solid var(--or);background:var(--surface);color:var(--or);font-family:var(--titre);font-weight:700;font-size:14px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:0}
+.rbtn:active{transform:translateY(1px)}
+.rbtn .nb{position:absolute;top:-6px;right:-8px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--cuivre);color:#1a1405;font-family:var(--chiffres);font-size:11px;line-height:17px;text-align:center}
+.resume{max-height:min(70vh,620px);overflow:auto;padding:6px 14px 14px}
+.rjour{display:grid;grid-template-columns:62px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--ligne);cursor:pointer}
+.rjour:last-child{border-bottom:0}
+.rdate{text-align:center;border-radius:12px;background:var(--surface-2);padding:6px 2px;align-self:start}
+.rdate b{display:block;font-family:var(--chiffres);font-size:24px;line-height:1}
+.rdate span{font-size:11px;color:var(--texte-3);text-transform:capitalize}
+.rdate.past{opacity:.55}
+.rinfo{font-size:11px;color:var(--texte-3);margin-bottom:3px}
+.rligne{font-size:14px;padding:2px 0;white-space:pre-wrap;word-break:break-word}
+.rligne .h{font-family:var(--chiffres);font-weight:700;font-size:15px;color:var(--or);margin-right:6px}
+.rvide{padding:24px 0;text-align:center;color:var(--texte-3)}
 .grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--ligne)}
 .dow{padding:4px 1px;text-align:center;background:var(--surface-2);font-size:10px;font-weight:700;color:var(--texte-3)}
 /* Toutes les cases ont exactement la même taille, quel que soit leur contenu */
@@ -188,7 +203,7 @@ aside.panel{align-self:start}
 }
 @media print{
   :root{--fond:#fff;--surface:#fff;--surface-2:#f4f4f4;--ligne:#ccc;--texte:#111;--texte-2:#333;--texte-3:#666;--or:#8a6410;--cuivre:#c4673a;--repos:#eee;--conge:#1f9d55;--vacances:#d6336c;color-scheme:light}
-  header .tools,aside,.toast,.modal,.mic{display:none!important}
+  header .tools,aside,.toast,.modal,.mic,.rbtn{display:none!important}
   header{position:static;border:0}
   .layout{display:block;padding:0}
   .panel{box-shadow:none;border:0}
@@ -285,6 +300,13 @@ aside.panel{align-self:start}
 <button id="micBtn" class="mic" onclick="startVoice()" aria-label="Dicter un rendez-vous" title="Dicter un rendez-vous">
   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2.5" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3.5"/></svg>
 </button>
+<div id="summary" class="modal" onclick="if(event.target===this)closeSummary()">
+  <div class="card">
+    <div class="chead"><div><b id="sumTitle"></b><div id="sumSub" class="hint"></div></div><button class="btn petit" onclick="closeSummary()" aria-label="Fermer">✕</button></div>
+    <div id="sumList" class="resume" onclick="const j=event.target.closest('.rjour'); if(j){ closeSummary(); selected=[j.dataset.d]; render(false); openModal(); }"></div>
+    <div class="foot"><button class="btn" onclick="copySummary()">Copier</button><button class="btn principal" onclick="closeSummary()">Fermer</button></div>
+  </div>
+</div>
 <div id="toast" class="toast" role="status"></div>
 
 <script>
@@ -593,7 +615,8 @@ function renderMonths(){
   for(let m = 0; m < 12; m++){
     const f = new Date(year, m, 1), last = new Date(year, m+1, 0), start = (f.getDay()+6)%7, b = document.createElement('section');
     b.className = 'month' + (today.slice(0,7) === iso(f).slice(0,7) ? ' now' : '');
-    b.innerHTML = `<div class="mhead">${MONS[m]} ${year}</div><div class="grid"></div>`;
+    const nbRdv = monthAppointments(year, m).reduce((n, j) => n + j.lignes.length, 0);
+    b.innerHTML = `<div class="mhead"><span>${MONS[m]} ${year}</span><button class="rbtn" data-m="${m}" aria-label="Résumé des rendez-vous de ${MONS[m]}" title="Résumé du mois">R${nbRdv ? `<span class="nb">${nbRdv}</span>` : ''}</button></div><div class="grid"></div>`;
     const g = b.querySelector('.grid');
     let html = DOWS.map(x => `<div class="dow">${x}</div>`).join('');
     for(let i = 0; i < start; i++) html += '<div class="day empty"></div>';
@@ -627,7 +650,51 @@ function renderMonths(){
     months.appendChild(b);
   }
 }
-months.addEventListener('click', e => { const c = e.target.closest('.day[data-d]'); if(c) clickDay(c.dataset.d); });
+months.addEventListener('click', e => {
+  const r = e.target.closest('.rbtn'); if(r) return showSummary(+r.dataset.m);
+  const c = e.target.closest('.day[data-d]'); if(c) clickDay(c.dataset.d);
+});
+
+/* ===================== Résumé des rendez-vous du mois ===================== */
+// Une ligne d'annotation = un rendez-vous ; l'heure en tête (« 14h30 – … ») sert au tri
+function heureDe(ligne){
+  const m = ligne.match(/^\s*(\d{1,2})\s*[h:]\s*(\d{2})?/i);
+  return m && +m[1] < 24 ? String(+m[1]).padStart(2, '0') + ':' + (m[2] || '00') : null;
+}
+function monthAppointments(y, m){
+  const c = (state.years[y] && state.years[y].comments) || {}, pref = y + '-' + String(m + 1).padStart(2, '0') + '-';
+  return Object.keys(c).filter(d => d.startsWith(pref)).sort().map(d => ({
+    d, lignes: c[d].split('\n').map(x => x.trim()).filter(Boolean).map(t => ({t, h: heureDe(t)}))
+      .sort((a, b) => (a.h || '99') < (b.h || '99') ? -1 : (a.h || '99') > (b.h || '99') ? 1 : 0)
+  })).filter(j => j.lignes.length);
+}
+function showSummary(m){
+  const jours = monthAppointments(year, m), today = iso(new Date());
+  const nb = jours.reduce((n, j) => n + j.lignes.length, 0);
+  sumTitle.textContent = 'Rendez-vous de ' + MONS[m] + ' ' + year;
+  sumSub.textContent = nb ? nb + ' rendez-vous sur ' + jours.length + ' jour(s) · touche un jour pour l’ouvrir' : '';
+  sumList.innerHTML = !jours.length ? '<div class="rvide">Aucun rendez-vous ce mois-ci.</div>' : jours.map(j => {
+    const dt = parse(j.d), sh = shift(dt), l = yd().leaves[j.d], hol = holidayName(j.d);
+    const info = [l ? 'Congé ' + l.t : sh === 'AM' ? 'Travail le matin' : sh === 'PM' ? 'Travail l’après-midi' : 'Repos', hol].filter(Boolean).join(' · ');
+    return `<div class="rjour" data-d="${j.d}"><div class="rdate${j.d < today ? ' past' : ''}"><span>${dt.toLocaleDateString('fr-FR', {weekday:'short'})}</span><b>${dt.getDate()}</b></div>`
+      + `<div><div class="rinfo">${esc(info)}</div>${j.lignes.map(x => {
+          const reste = x.h ? x.t.replace(/^\s*\d{1,2}\s*[h:]\s*(\d{2})?\s*[–-]?\s*/i, '') : x.t;
+          return `<div class="rligne">${x.h ? `<span class="h">${x.h.replace(':', 'h')}</span>` : ''}${esc(reste)}</div>`;
+        }).join('')}</div></div>`;
+  }).join('');
+  summary.style.display = 'flex';
+}
+function closeSummary(){ summary.style.display = 'none'; }
+function summaryText(){
+  return sumTitle.textContent + '\n' + [...sumList.querySelectorAll('.rjour')].map(j => {
+    return '\n' + fr(j.dataset.d) + '\n' + [...j.querySelectorAll('.rligne')].map(l => '  • ' + l.textContent.replace(/^(\d{2}h\d{2})/, '$1 ')).join('\n');
+  }).join('\n');
+}
+function copySummary(){
+  const t = summaryText();
+  if(native && native.copyText){ native.copyText(t); return toastMsg('Résumé copié.'); }
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toastMsg('Résumé copié.'), () => toastMsg('Copie impossible.'));
+}
 
 /* ===================== Sélection et saisie ===================== */
 function range(a, b){
@@ -736,6 +803,7 @@ function removeNote(){
 function cancelSel(){ modal.style.display = 'none'; selected = []; render(false); }
 // Bouton retour d'Android : ferme d'abord la fenêtre ou la sélection
 function appBack(){
+  if(summary.style.display === 'flex'){ closeSummary(); return true; }
   if(modal.style.display === 'flex' || selected.length){ cancelSel(); return true; }
   return false;
 }

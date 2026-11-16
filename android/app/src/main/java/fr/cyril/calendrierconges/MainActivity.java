@@ -1,6 +1,8 @@
 package fr.cyril.calendrierconges;
 
 import android.app.Activity;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.res.Configuration;
@@ -137,6 +139,14 @@ public class MainActivity extends Activity {
                 i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
                 try { startActivityForResult(i, REQ_VOICE); }
                 catch (ActivityNotFoundException e) { js("voiceError('Reconnaissance vocale absente : installe ou active l’appli Google.')"); }
+            });
+        }
+
+        @JavascriptInterface
+        public void copyText(String text) {
+            runOnUiThread(() -> {
+                ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
+                cm.setPrimaryClip(ClipData.newPlainText("Rendez-vous", text));
             });
         }
 

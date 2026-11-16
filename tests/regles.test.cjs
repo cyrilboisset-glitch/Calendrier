@@ -163,6 +163,23 @@ const assert = require('assert');
     assert.strictEqual(r.saved, 'Ancienne note\n14h30 – Rendez-vous dentiste le 3 décembre 2026 à 14h30');
   });
 
+  await t('résumé du mois : rendez-vous triés par jour puis par heure', async () => {
+    const r = await ev(() => { state = defaultState(); year = 2026; yd();
+      yd().comments['2026-06-15'] = '16h00 – Garage\n9h30 – Médecin';
+      yd().comments['2026-06-03'] = 'Anniversaire Paul';
+      yd().comments['2026-07-01'] = 'Hors mois';
+      render(false);
+      const btn = document.querySelectorAll('.rbtn')[5];
+      const badge = btn.querySelector('.nb').textContent;
+      btn.click();
+      const lignes = [...document.querySelectorAll('#sumList .rligne')].map(x => x.textContent);
+      return {badge, open: summary.style.display, lignes, jours: [...document.querySelectorAll('#sumList .rjour')].map(j => j.dataset.d)}; });
+    assert.strictEqual(r.badge, '3');
+    assert.strictEqual(r.open, 'flex');
+    assert.deepStrictEqual(r.jours, ['2026-06-03', '2026-06-15']);
+    assert.deepStrictEqual(r.lignes, ['Anniversaire Paul', '09h30Médecin', '16h00Garage']);
+  });
+
   assert.deepStrictEqual(errors, []);
   console.log(ok + ' tests OK');
   await browser.close();
