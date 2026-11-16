@@ -223,7 +223,7 @@ aside.panel{align-self:start}
           <span class="tag"><span class="dot" style="background:var(--cuivre)"></span>Après-midi</span>
           <span class="tag"><span class="dot" style="background:var(--repos);border:1px solid var(--ligne)"></span>Repos</span>
           <span class="tag"><span class="dot" style="background:var(--vacances)"></span>Vacances scolaires</span>
-          <span class="tag"><span class="dot" style="background:var(--conge)"></span>Congé</span>
+          <span class="tag"><span class="dot" style="background:var(--conge)"></span>Congé / férié chômé</span>
           <span class="tag"><span class="dot" style="background:var(--cuivre)"></span>Annotation</span>
         </div>
       </div>
@@ -594,11 +594,16 @@ function renderMonths(){
       if(selected.includes(s)) cls.push('selected');
       if(s === today) cls.push('today');
       if(l){ cls.push('leave'); if(+l.q < 1) cls.push('half'); if(l.t==='RECUP') cls.push('recup'); }
-      const title = [hol, ...v.map(x => 'Vacances zone ' + x.z + ' : ' + x.n), l ? l.t + ' ' + fmt(l.q) + (l.detail ? ' – ' + l.detail : '') + (l.sourceHoliday ? ' (férié du ' + fr(l.sourceHoliday) + ')' : '') : '', note || ''].filter(Boolean).join(' · ');
+      // Férié chômé (travaillé selon le cycle) : affiché comme un jour de congé
+      const chome = hol && sh !== 'OFF' && !l && yd().hm[s] === 'chome';
+      if(chome) cls.push('leave', 'chome');
+      const title = [hol ? hol + (chome ? ' (chômé)' : '') : '', ...v.map(x => 'Vacances zone ' + x.z + ' : ' + x.n), l ? l.t + ' ' + fmt(l.q) + (l.detail ? ' – ' + l.detail : '') + (l.sourceHoliday ? ' (férié du ' + fr(l.sourceHoliday) + ')' : '') : '', note || ''].filter(Boolean).join(' · ');
       let inner = `<div class="n">${n}</div>`;
       if(l){
         inner += `<div class="line lt">${l.t} ${fmt(+l.q)}</div>`;
         inner += l.t==='RECUP' && l.sourceHoliday ? `<div class="line src">↩ ${frShort(l.sourceHoliday)}</div>` : (l.detail ? `<div class="line src">${esc(l.detail)}</div>` : '');
+      } else if(chome){
+        inner += `<div class="line lt">Chômé</div><div class="line src">${esc(hol)}</div>`;
       } else {
         inner += `<div class="line shift">${sh==='AM' ? 'Matin' : sh==='PM' ? 'Aprèm' : 'Repos'}</div>`;
       }

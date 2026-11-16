@@ -129,6 +129,15 @@ const assert = require('assert');
     await p2.close();
   });
 
+  await t('férié chômé affiché comme un jour de congé', async () => {
+    const r = await ev(() => { state = defaultState(); year = 2026; yd();
+      const h = holidays(2026).filter(h => worked(h[0]))[0][0];
+      setHM(h, 'chome');
+      const c = document.querySelector(`.day[data-d="${h}"]`);
+      return [c.classList.contains('leave'), c.textContent.includes('Chômé')]; });
+    assert.deepStrictEqual(r, [true, true]);
+  });
+
   assert.deepStrictEqual(errors, []);
   console.log(ok + ' tests OK');
   await browser.close();
