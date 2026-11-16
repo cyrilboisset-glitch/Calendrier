@@ -1,6 +1,7 @@
 package fr.cyril.calendrierconges;
 
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -8,6 +9,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.print.PrintAttributes;
 import android.print.PrintManager;
+import android.speech.RecognizerIntent;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -23,6 +25,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 
 /**
  * Appli Calendrier congés : affiche la page www/index.html et lui fournit
@@ -30,7 +33,7 @@ import java.nio.charset.StandardCharsets;
  * l'export / import d'un fichier JSON et l'impression en PDF.
  */
 public class MainActivity extends Activity {
-    private static final int REQ_EXPORT = 1, REQ_IMPORT = 2;
+    private static final int REQ_EXPORT = 1, REQ_IMPORT = 2, REQ_VOICE = 3;
     private WebView web;
     private String pendingExport;
 
@@ -123,6 +126,20 @@ public class MainActivity extends Activity {
             });
         }
 
+        /** Dictée d'un rendez-vous : fenêtre de reconnaissance vocale d'Android (français). */
+        @JavascriptInterface
+        public void startVoice() {
+            runOnUiThread(() -> {
+                Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                i.putExtra(RecognizerIntent.EXTRA_LANGUAGE, "fr-FR");
+                i.putExtra(RecognizerIntent.EXTRA_PROMPT, "Ex : rendez-vous dentiste mardi à 14 h 30");
+                i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                try { startActivityForResult(i, REQ_VOICE); }
+                catch (ActivityNotFoundException e) { js("voiceError('Reconnaissance vocale absente : installe ou active l’appli Google.')"); }
+            });
+        }
+
         @JavascriptInterface
         public void print() {
             runOnUiThread(() -> {
@@ -148,6 +165,10 @@ public class MainActivity extends Activity {
             }
             pendingExport = null;
             js("exportDone(" + ok + ")");
+        } else if (requestCode == REQ_VOICE) {
+            ArrayList<String> r = (resultCode == RESULT_OK && data != null) ? data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS) : null;
+            if (r != null && !r.isEmpty()) js("onVoiceResult(" + JSONObject.quote(r.get(0)) + ")");
+            else js("voiceError('')");
         } else if (requestCode == REQ_IMPORT && uri != null) {
             try (InputStream in = getContentResolver().openInputStream(uri)) {
                 js("importText(" + JSONObject.quote(read(in)) + ")");

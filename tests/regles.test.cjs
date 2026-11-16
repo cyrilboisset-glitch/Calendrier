@@ -138,6 +138,31 @@ const assert = require('assert');
     assert.deepStrictEqual(r, [true, true]);
   });
 
+  await t('dictée : dates et heures reconnues', async () => {
+    const r = await ev(() => {
+      const now = new Date(2026, 10, 16, 10);   // lundi 16 novembre 2026
+      const cas = ['rendez-vous dentiste le 12 mars à 14h30', 'rendez-vous demain à 9 heures', 'rendez-vous garage après-demain à 10 h 15',
+        'rdv mardi à 14 heures et demie', 'réunion lundi prochain à midi', 'rendez-vous le 3 décembre à 8h', 'rendez-vous le 1er janvier 2027',
+        'médecin le 20 à 17:45', 'coiffeur le 10 à 11h', 'rendez-vous 05/12 à 15h', 'appeler la banque', 'rendez-vous le vingt-trois décembre à quinze heures'];
+      return cas.map(c => { const p = parseVoice(c, now); return [p.date, p.time]; });
+    });
+    assert.deepStrictEqual(r, [
+      ['2027-03-12','14:30'], ['2026-11-17','09:00'], ['2026-11-18','10:15'], ['2026-11-17','14:30'], ['2026-11-23','12:00'],
+      ['2026-12-03','08:00'], ['2027-01-01',null], ['2026-11-20','17:45'], ['2026-12-10','11:00'], ['2026-12-05','15:00'], [null,null],
+      ['2026-12-23','15:00']]);
+  });
+
+  await t('dictée : ouvre le jour avec l’annotation, Enregistrer la pose', async () => {
+    const r = await ev(() => { state = defaultState(); year = 2026; yd(); render(false);
+      yd().comments['2026-12-03'] = 'Ancienne note';
+      onVoiceResult('rendez-vous dentiste le 3 décembre 2026 à 14h30');
+      const open = [modal.style.display, selected.join(), comment.value, voiceField.hidden];
+      saveDays();
+      return {open, saved: yd().comments['2026-12-03']}; });
+    assert.deepStrictEqual(r.open, ['flex', '2026-12-03', 'Ancienne note\n14h30 – Rendez-vous dentiste le 3 décembre 2026 à 14h30', false]);
+    assert.strictEqual(r.saved, 'Ancienne note\n14h30 – Rendez-vous dentiste le 3 décembre 2026 à 14h30');
+  });
+
   assert.deepStrictEqual(errors, []);
   console.log(ok + ' tests OK');
   await browser.close();
