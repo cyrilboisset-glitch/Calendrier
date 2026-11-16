@@ -4,7 +4,14 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.ActivityNotFoundException;
+import android.Manifest;
+import android.content.ContentResolver;
+import android.content.ContentUris;
+import android.content.ContentValues;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.provider.CalendarContract;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.net.Uri;
@@ -18,6 +25,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.ByteArrayOutputStream;
@@ -28,6 +36,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.TimeZone;
 
 /**
  * Appli Calendrier congés : affiche la page www/index.html et lui fournit
@@ -35,9 +44,10 @@ import java.util.ArrayList;
  * l'export / import d'un fichier JSON et l'impression en PDF.
  */
 public class MainActivity extends Activity {
-    private static final int REQ_EXPORT = 1, REQ_IMPORT = 2, REQ_VOICE = 3;
+    private static final int REQ_EXPORT = 1, REQ_IMPORT = 2, REQ_VOICE = 3, REQ_CAL_PERM = 10;
     private WebView web;
     private String pendingExport;
+    private String pendingCalendar;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,6 +89,100 @@ public class MainActivity extends Activity {
         web.evaluateJavascript("(window.appBack && appBack()) ? 'oui' : 'non'", v -> {
             if (v == null || !v.contains("oui")) finish();
         });
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
+        if (requestCode != REQ_CAL_PERM) return;
+        boolean ok = results.length > 0;
+        for (int r : results) ok &= r == PackageManager.PERMISSION_GRANTED;
+        String p = pendingCalendar;
+        pendingCalendar = null;
+        if (ok && p != null) runCalendarSync(p);
+        else js("calendarSyncDone(" + JSONObject.quote(err("accès à l’agenda refusé (Paramètres > Applis > Congés > Autorisations)")) + ")");
+    }
+
+    private static String err(String msg) {
+        try { return new JSONObject().put("ok", false).put("error", msg).toString(); } catch (Exception e) { return "{\"ok\":false}"; }
+    }
+
+    private void runCalendarSync(String payload) {
+        new Thread(() -> {
+            String res;
+            try { res = calendarSyncNow(new JSONObject(payload)).toString(); }
+            catch (Exception e) { res = err("erreur " + e.getMessage()); }
+            js("calendarSyncDone(" + JSONObject.quote(res) + ")");
+        }).start();
+    }
+
+    /** Agenda choisi : celui du compte Google principal, sinon le premier agenda modifiable. */
+    private long[] findCalendar(StringBuilder name) {
+        String[] proj = {CalendarContract.Calendars._ID, CalendarContract.Calendars.ACCOUNT_TYPE, CalendarContract.Calendars.IS_PRIMARY,
+                CalendarContract.Calendars.CALENDAR_ACCESS_LEVEL, CalendarContract.Calendars.CALENDAR_DISPLAY_NAME};
+        long best = -1; int bestScore = -1; String bestName = "";
+        try (Cursor c = getContentResolver().query(CalendarContract.Calendars.CONTENT_URI, proj, null, null, null)) {
+            while (c != null && c.moveToNext()) {
+                if (c.getInt(3) < CalendarContract.Calendars.CAL_ACCESS_CONTRIBUTOR) continue;
+                int score = ("com.google".equals(c.getString(1)) ? 2 : 0) + (c.getInt(2) == 1 ? 1 : 0);
+                if (score > bestScore) { bestScore = score; best = c.getLong(0); bestName = c.getString(4); }
+            }
+        }
+        name.append(bestName == null ? "" : bestName);
+        return new long[]{best};
+    }
+
+    private boolean eventExists(ContentResolver cr, long id) {
+        try (Cursor c = cr.query(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, id),
+                new String[]{CalendarContract.Events._ID, CalendarContract.Events.DELETED}, null, null, null)) {
+            return c != null && c.moveToFirst() && c.getInt(1) == 0;
+        }
+    }
+
+    private JSONObject calendarSyncNow(JSONObject in) throws Exception {
+        ContentResolver cr = getContentResolver();
+        StringBuilder calName = new StringBuilder();
+        long calId = findCalendar(calName)[0];
+        if (calId < 0) return new JSONObject(err("aucun agenda Google trouvé sur ce téléphone"));
+
+        JSONArray rm = in.optJSONArray("remove");
+        for (int i = 0; rm != null && i < rm.length(); i++)
+            cr.delete(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, rm.getLong(i)), null, null);
+
+        JSONArray evs = in.getJSONArray("events"), ids = new JSONArray();
+        String desc = in.optString("description", "");
+        for (int i = 0; i < evs.length(); i++) {
+            JSONObject e = evs.getJSONObject(i);
+            boolean allDay = e.optBoolean("allDay");
+            ContentValues v = new ContentValues();
+            v.put(CalendarContract.Events.TITLE, e.getString("title"));
+            v.put(CalendarContract.Events.DESCRIPTION, desc);
+            v.put(CalendarContract.Events.DTSTART, e.getLong("start"));
+            v.put(CalendarContract.Events.DTEND, e.getLong("end"));
+            v.put(CalendarContract.Events.ALL_DAY, allDay ? 1 : 0);
+            v.put(CalendarContract.Events.EVENT_TIMEZONE, allDay ? "UTC" : TimeZone.getDefault().getID());
+            v.put(CalendarContract.Events.HAS_ALARM, 1);
+            long id = e.optLong("id", 0);
+            if (id > 0 && eventExists(cr, id)) {
+                cr.update(ContentUris.withAppendedId(CalendarContract.Events.CONTENT_URI, id), v, null, null);
+            } else {
+                v.put(CalendarContract.Events.CALENDAR_ID, calId);
+                Uri u = cr.insert(CalendarContract.Events.CONTENT_URI, v);
+                if (u == null) return new JSONObject(err("l’agenda a refusé l’événement"));
+                id = ContentUris.parseId(u);
+            }
+            cr.delete(CalendarContract.Reminders.CONTENT_URI, CalendarContract.Reminders.EVENT_ID + "=?", new String[]{String.valueOf(id)});
+            JSONArray rem = e.optJSONArray("reminders");
+            for (int k = 0; rem != null && k < rem.length(); k++) {
+                ContentValues r = new ContentValues();
+                r.put(CalendarContract.Reminders.EVENT_ID, id);
+                r.put(CalendarContract.Reminders.MINUTES, rem.getInt(k));
+                r.put(CalendarContract.Reminders.METHOD, CalendarContract.Reminders.METHOD_ALERT);
+                cr.insert(CalendarContract.Reminders.CONTENT_URI, r);
+            }
+            ids.put(id);
+        }
+        return new JSONObject().put("ok", true).put("date", in.getString("date")).put("ids", ids).put("calendar", calName.toString());
     }
 
     private File stateFile() { return new File(getFilesDir(), "calendrier.json"); }
@@ -139,6 +243,20 @@ public class MainActivity extends Activity {
                 i.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
                 try { startActivityForResult(i, REQ_VOICE); }
                 catch (ActivityNotFoundException e) { js("voiceError('Reconnaissance vocale absente : installe ou active l’appli Google.')"); }
+            });
+        }
+
+        /** Synchronise les rendez-vous d'un jour avec l'agenda Google du téléphone. */
+        @JavascriptInterface
+        public void calendarSync(String payload) {
+            runOnUiThread(() -> {
+                if (checkSelfPermission(Manifest.permission.WRITE_CALENDAR) != PackageManager.PERMISSION_GRANTED
+                        || checkSelfPermission(Manifest.permission.READ_CALENDAR) != PackageManager.PERMISSION_GRANTED) {
+                    pendingCalendar = payload;
+                    requestPermissions(new String[]{Manifest.permission.READ_CALENDAR, Manifest.permission.WRITE_CALENDAR}, REQ_CAL_PERM);
+                } else {
+                    runCalendarSync(payload);
+                }
             });
         }
 

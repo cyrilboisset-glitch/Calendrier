@@ -180,6 +180,48 @@ const assert = require('assert');
     assert.deepStrictEqual(r.lignes, ['Anniversaire Paul', '09h30Médecin', '16h00Garage']);
   });
 
+  await t('agenda Google : événements, rappels, mise à jour et suppression', async () => {
+    const p3 = await browser.newPage();
+    p3.on('pageerror', e => errors.push(e.message));
+    await p3.addInitScript(() => {
+      let next = 100; window.envois = [];
+      window.AndroidApp = { saveState: () => true, loadState: () => '',
+        calendarSync: p => { const o = JSON.parse(p); envois.push(o);
+          const ids = o.events.map(e => e.id || next++);
+          setTimeout(() => calendarSyncDone(JSON.stringify({ok: true, date: o.date, ids, calendar: 'moi@gmail.com'})), 0); } };
+    });
+    await p3.goto('file://' + path.resolve(__dirname, '../www/index.html'));
+    const r = await p3.evaluate(async () => {
+      const attendre = () => new Promise(r => setTimeout(r, 20));
+      year = 2026; yd(); render(false);
+      selected = ['2026-12-03']; openModal();
+      const bouton = !agendaBtn.hidden;
+      comment.value = '14h30 – Dentiste\nAnniversaire Paul';
+      syncAgendaFromModal(); await attendre();
+      const e1 = envois[0], map1 = JSON.stringify(yd().agenda['2026-12-03']);
+      // modification de l'annotation : mise à jour automatique, sans doublon
+      selected = ['2026-12-03']; openModal(); comment.value = '15h00 – Dentiste'; saveDays(); await attendre();
+      const e2 = envois[1];
+      // effacer l'annotation : retire de l'agenda
+      selected = ['2026-12-03']; openModal(); removeNote(); await attendre();
+      return {bouton, e1, map1, e2, e3: envois[2], fin: yd().agenda['2026-12-03']};
+    });
+    await p3.close();
+    assert.strictEqual(r.bouton, true);
+    assert.deepStrictEqual(r.e1.events.map(e => [e.title, e.allDay, e.reminders]), [['Dentiste', false, [60, 1230]], ['Anniversaire Paul', true, [360]]]);
+    assert.strictEqual(r.e1.events[0].start, new Date(2026, 11, 3, 14, 30).getTime());
+    assert.strictEqual(r.map1, JSON.stringify([{t: '14h30 – Dentiste', id: 100}, {t: 'Anniversaire Paul', id: 101}]));
+    assert.deepStrictEqual(r.e2.events.map(e => [e.id, e.title]), [[100, 'Dentiste']]);
+    assert.deepStrictEqual(r.e2.remove, [101]);
+    assert.deepStrictEqual([r.e3.events.length, r.e3.remove], [0, [100]]);
+    assert.strictEqual(r.fin, undefined);
+  });
+
+  await t('agenda : bouton caché hors appli Android', async () => {
+    const r = await ev(() => { selected = ['2026-12-03']; openModal(); const h = agendaBtn.hidden; cancelSel(); return h; });
+    assert.strictEqual(r, true);
+  });
+
   assert.deepStrictEqual(errors, []);
   console.log(ok + ' tests OK');
   await browser.close();

@@ -17,7 +17,7 @@
   --accent:#e8c15a;--accent-texte:#1a1405;--accent-trait:#8a6410;
   --cuivre:#c4673a;--or:#c99a34;--danger:#c0392b;
   --conge:#1f9d55;--vacances:#d6336c;
-  --repos:#e9e2d3;
+  --repos:#e3dac7;--travail:#fffdf8;
   --ombre:0 2px 3px rgb(40 30 10/10%),0 10px 24px rgb(40 30 10/12%);
   --rayon:16px;
   --chiffres:'Barlow Condensed','Roboto Condensed','Arial Narrow',system-ui,sans-serif;
@@ -31,7 +31,7 @@
     --accent:#f0cf73;--accent-texte:#1a1405;--accent-trait:#f0cf73;
     --cuivre:#e9a178;--or:#f0cf73;--danger:#ff7b6b;
     --conge:#37c27b;--vacances:#e8588a;
-    --repos:#141210;
+    --repos:#0b0a09;--travail:#2a2620;
     --ombre:0 2px 3px rgb(0 0 0/40%),0 12px 26px rgb(0 0 0/45%);
     color-scheme:dark;
   }
@@ -42,7 +42,7 @@
   --accent:#f0cf73;--accent-texte:#1a1405;--accent-trait:#f0cf73;
   --cuivre:#e9a178;--or:#f0cf73;--danger:#ff7b6b;
   --conge:#37c27b;--vacances:#e8588a;
-  --repos:#141210;
+  --repos:#0b0a09;--travail:#2a2620;
   --ombre:0 2px 3px rgb(0 0 0/40%),0 12px 26px rgb(0 0 0/45%);
   color-scheme:dark;
 }
@@ -144,15 +144,16 @@ aside.panel{align-self:start}
 /* Toutes les cases ont exactement la même taille, quel que soit leur contenu */
 .day{position:relative;height:70px;padding:4px 5px;background:var(--surface);overflow:hidden;cursor:pointer;transition:background-color .15s}
 .empty{background:var(--surface-2);cursor:default}
-.worked{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--or) 35%,transparent)}
+.worked{background:var(--travail);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--or) 45%,transparent)}
 .off{background:var(--repos);color:var(--texte-3)}
+.off .n{opacity:.75}
 .n{font-family:var(--chiffres);font-weight:700;font-size:17px;line-height:1}
 .line{font-size:10px;line-height:1.25;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .am .line.shift{color:var(--or)}
 .pm .line.shift{color:var(--cuivre)}
 .off .line.shift{color:var(--texte-3)}
 .ferie{position:absolute;right:4px;top:4px;background:var(--accent);color:var(--accent-texte);border-radius:5px;padding:0 4px;font-size:10px;font-weight:800;line-height:15px}
-.school:not(.leave){background:color-mix(in srgb,var(--vacances) 13%,var(--surface))}
+.school:not(.leave){background:color-mix(in srgb,var(--vacances) 13%,var(--travail))}
 .school.off:not(.leave){background:color-mix(in srgb,var(--vacances) 9%,var(--repos))}
 .schoolBadge{position:absolute;left:4px;bottom:3px;font-size:9px;font-weight:700;color:var(--vacances)}
 .leave{background:color-mix(in srgb,var(--conge) 20%,var(--surface))!important;box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--conge) 70%,transparent)!important}
@@ -202,7 +203,7 @@ aside.panel{align-self:start}
   .field textarea,.field input,.field select{font-size:16px}
 }
 @media print{
-  :root{--fond:#fff;--surface:#fff;--surface-2:#f4f4f4;--ligne:#ccc;--texte:#111;--texte-2:#333;--texte-3:#666;--or:#8a6410;--cuivre:#c4673a;--repos:#eee;--conge:#1f9d55;--vacances:#d6336c;color-scheme:light}
+  :root{--fond:#fff;--surface:#fff;--surface-2:#f4f4f4;--ligne:#ccc;--texte:#111;--texte-2:#333;--texte-3:#666;--or:#8a6410;--cuivre:#c4673a;--repos:#e6e6e6;--travail:#fff;--conge:#1f9d55;--vacances:#d6336c;color-scheme:light}
   header .tools,aside,.toast,.modal,.mic,.rbtn{display:none!important}
   header{position:static;border:0}
   .layout{display:block;padding:0}
@@ -288,11 +289,12 @@ aside.panel{align-self:start}
       <div class="field"><label for="lqty">Quantité</label><select id="lqty"></select></div>
       <div class="field" id="recupSourceField" style="display:none"><label for="recupSource">Jour férié à l’origine de la RECUP</label><select id="recupSource"></select><div id="recupHelp" class="hint"></div></div>
       <div class="field"><label for="detail">Détail du congé</label><input id="detail"></div>
-      <div class="field"><label for="comment">Agenda / commentaire</label><textarea id="comment" placeholder="Ajouter une annotation…"></textarea></div>
+      <div class="field"><label for="comment">Agenda / commentaire</label><textarea id="comment" placeholder="Ajouter une annotation…"></textarea><div id="agendaInfo" class="hint" style="margin-top:4px" hidden></div></div>
     </div>
     <div class="foot">
       <button class="btn" onclick="removeLeave()">Retirer congé</button>
       <button class="btn" onclick="removeNote()">Effacer annotation</button>
+      <button class="btn" id="agendaBtn" onclick="syncAgendaFromModal()" hidden>📅 Synchroniser Google Agenda</button>
       <button class="btn principal" onclick="saveDays()">Enregistrer</button>
     </div>
   </div>
@@ -341,7 +343,7 @@ function migrate(s){
   if(typeof s.years !== 'object') throw new Error('format');
   for(const [y, d] of Object.entries(s.years)){
     d.balances = {...BASE, ...(d.balances || {})};
-    d.leaves ??= {}; d.comments ??= {}; d.hm ??= {};
+    d.leaves ??= {}; d.comments ??= {}; d.hm ??= {}; d.agenda ??= {};
     // Version 1 : le CET de départ des années suivantes était figé à la création de l'année.
     // Désormais il est recalculé (report automatique) ; on part sans ajustement manuel.
     if((s.version || 1) < 2 || d.cetAdj === undefined) d.cetAdj = 0;
@@ -711,6 +713,10 @@ function clickDay(s){
 }
 function openModal(){
   voiceField.hidden = true;
+  { const one = selected.length === 1, ag = one ? agendaOf(+selected[0].slice(0,4), selected[0]) : [];
+    agendaBtn.hidden = !(native && native.calendarSync && one);
+    agendaInfo.hidden = !ag.length;
+    agendaInfo.textContent = ag.length ? '📅 Synchronisé avec Google Agenda (' + ag.length + ' rendez-vous) : les modifications seront reportées.' : ''; }
   const first = selected[0], cur = yd().leaves[first], single = selected.length === 1;
   modal.style.display = 'flex';
   mtitle.textContent = single ? fr(first) + (holidayName(first) ? ' · ' + holidayName(first) : '') : selected.length + ' jours sélectionnés';
@@ -753,7 +759,7 @@ function qtys(){
     }
   }
 }
-function saveDays(){
+function saveDays(noAutoSync){
   const t = ltype.value, q = +lqty.value, c = comment.value.trim(), single = selected.length === 1;
   if(t === 'RECUP'){
     if(!single) return toastMsg('La RECUP se pose sur un seul jour à la fois.');
@@ -775,8 +781,9 @@ function saveDays(){
     yd().leaves[s] = item; count++;
   }
   modal.style.display = 'none';
-  const n = selected.length; selected = [];
+  const n = selected.length, faits = [...selected]; selected = [];
   render();
+  if(!noAutoSync) faits.filter(d => agendaOf(year, d).length).forEach(d => syncDay(d));   // jour déjà dans l'agenda : on le met à jour
   let msg = n + ' jour(s) enregistré(s)' + (t==='NONE' ? ' (annotation)' : ' · ' + count + ' congé(s) posé(s)') + '.';
   if(refus.length) msg += ' Non posé : ' + refus.slice(0, 3).join(' ; ') + (refus.length > 3 ? ' (+' + (refus.length-3) + ')' : '') + '.';
   toastMsg(msg, refus.length ? 6000 : 2600);
@@ -796,7 +803,9 @@ function removeLeave(){
 function removeNote(){
   if(!selected.length) return toastMsg('Aucun jour sélectionné.');
   let removed = 0;
-  for(const s of selected) if(yd().comments[s]){ delete yd().comments[s]; removed++; }
+  const synced = [];
+  for(const s of selected){ if(yd().comments[s]){ delete yd().comments[s]; removed++; } if(agendaOf(year, s).length) synced.push(s); }
+  synced.forEach(d => syncDay(d));   // retire aussi les rendez-vous de l'agenda
   comment.value = ''; modal.style.display = 'none'; selected = []; render();
   toastMsg(removed ? 'Annotation effacée sur ' + removed + ' jour(s).' : 'Aucune annotation à effacer.');
 }
@@ -946,6 +955,57 @@ function voiceChangeDate(v){
   if(+v.slice(0,4) < START || +v.slice(0,4) > END) return toastMsg('Choisis un jour entre ' + START + ' et ' + END + '.');
   voiceNoteText = comment.value.split('\n').at(-1);   // garde le texte éventuellement corrigé
   openVoiceDay(v, false);
+}
+
+/* ===================== Synchronisation Google Agenda (appli Android) ===================== */
+// Chaque ligne d'annotation devient un événement ; rappels : 1 h avant et la veille à 18 h
+const RAPPEL_VEILLE_H = 18, RAPPEL_AVANT_MIN = 60;
+function agendaOf(y, s){ const d = state.years[y]; return (d && d.agenda && d.agenda[s]) || []; }
+function agendaPayload(s){
+  const y = +s.slice(0,4), [Y, M, D] = s.split('-').map(Number);
+  const lines = ((yd(y).comments[s]) || '').split('\n').map(x => x.trim()).filter(Boolean);
+  const old = agendaOf(y, s).map(o => ({...o})), ids = new Array(lines.length).fill(0);
+  lines.forEach((t, i) => { const k = old.findIndex(o => o.t === t); if(k >= 0){ ids[i] = old[k].id; old.splice(k, 1); } });
+  lines.forEach((t, i) => { if(!ids[i] && old.length) ids[i] = old.shift().id; });   // ligne modifiée : on met à jour l'événement
+  const events = lines.map((t, i) => {
+    const h = heureDe(t), title = (h ? t.replace(/^\s*\d{1,2}\s*[h:]\s*(\d{2})?\s*[–-]?\s*/i, '') : t) || t;
+    if(h){
+      const [hh, mm] = h.split(':').map(Number), start = new Date(Y, M-1, D, hh, mm).getTime();
+      const veille = Math.round((start - new Date(Y, M-1, D-1, RAPPEL_VEILLE_H, 0).getTime()) / 60000);
+      return {id: ids[i], title, start, end: start + 3600000, allDay: false, reminders: [...new Set([RAPPEL_AVANT_MIN, veille])]};
+    }
+    const start = Date.UTC(Y, M-1, D);
+    return {id: ids[i], title, start, end: start + 86400000, allDay: true, reminders: [(24 - RAPPEL_VEILLE_H) * 60]};
+  });
+  return {date: s, lines, events, remove: old.map(o => o.id).filter(Boolean),
+    description: 'Ajouté depuis Calendrier congés'};
+}
+const agendaPending = {};
+function syncDay(s){
+  if(!(native && native.calendarSync)) return;
+  const p = agendaPayload(s);
+  if(!p.events.length && !p.remove.length) return;
+  agendaPending[s] = p.lines;
+  native.calendarSync(JSON.stringify(p));
+}
+function syncAgendaFromModal(){
+  const s = selected[0];
+  if(!comment.value.trim() && !agendaOf(year, s).length) return toastMsg('Ajoute d’abord le rendez-vous dans l’annotation.');
+  saveDays(true);
+  if(modal.style.display === 'flex') return;   // enregistrement refusé (message déjà affiché)
+  syncDay(s);
+}
+// Réponse de l'appli Android : {ok, date, ids, calendar} ou {ok:false, error}
+function calendarSyncDone(r){
+  if(typeof r === 'string') r = JSON.parse(r);
+  if(!r.ok) return toastMsg('Agenda Google : ' + (r.error || 'échec de la synchronisation') + '.', 5000);
+  const y = +r.date.slice(0,4), lines = agendaPending[r.date] || [];
+  delete agendaPending[r.date];
+  yd(y).agenda ??= {};
+  if(lines.length) yd(y).agenda[r.date] = lines.map((t, i) => ({t, id: r.ids[i]}));
+  else delete yd(y).agenda[r.date];
+  save();
+  toastMsg(lines.length ? '📅 ' + lines.length + ' rendez-vous dans ' + (r.calendar || 'Google Agenda') + ' · rappels la veille à 18 h et 1 h avant.' : '📅 Rendez-vous retiré(s) de l’agenda.', 4500);
 }
 
 init();
